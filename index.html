@@ -7,6 +7,8 @@
 <link rel="apple-touch-icon" href="icon-192_1.png">
 <meta name="theme-color" content="#ff6b4a">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>¿Cuál es mayor?</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -425,6 +427,8 @@ let hidden = false; try{ hidden = localStorage.getItem('hideInstall') === '1' }c
 if(!standalone && !hidden){
   setTimeout(() => { document.body.classList.add('focus'); $('install').classList.add('show'); }, 350);
 }
+
+if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
 
 renderModes();
 </script>
