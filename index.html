@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#ff6b4a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>¿Cuál es mayor?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#fbf4e9; --card:#ffffff; --ink:#1f2340; --muted:#6b6f8a;
+    --accent:#ff6b4a; --accent2:#4a7dff; --ok:#21b26b; --bad:#e8434b;
+    --radius:22px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%}
+  body{
+    font-family:"Baloo 2",system-ui,sans-serif;background:var(--bg);color:var(--ink);
+    display:flex;flex-direction:column;overflow:hidden;
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
+  }
+  header{padding:18px 20px 6px;transition:filter .35s}
+  header h1{margin:0;font-size:30px;line-height:1.1;font-weight:800}
+  header p{margin:2px 0 0;color:var(--muted);font-size:15px}
+
+  main{flex:1;display:grid;overflow:hidden;transition:filter .35s}
+  /* Crossfade: todas las vistas ocupan la misma celda */
+  .view{grid-area:1/1;overflow-y:auto;padding:10px 20px 120px;
+    opacity:0;visibility:hidden;transform:translateY(6px);
+    transition:opacity .35s ease, transform .35s ease, visibility 0s linear .35s}
+  .view.active{opacity:1;visibility:visible;transform:none;
+    transition:opacity .35s ease, transform .35s ease, visibility 0s}
+
+  /* Tarjetas de modos */
+  .mode{display:flex;align-items:center;gap:14px;width:100%;text-align:left;border:0;
+    background:var(--card);border-radius:var(--radius);padding:16px;margin:0 0 12px;
+    box-shadow:0 2px 0 rgba(31,35,64,.06),0 8px 24px rgba(31,35,64,.06);
+    font:inherit;color:inherit;cursor:pointer;transition:transform .15s}
+  .mode:active{transform:scale(.98)}
+  .mode .ic{width:54px;height:54px;border-radius:16px;display:grid;place-items:center;font-size:26px;flex:none}
+  .mode h2{margin:0;font-size:22px;line-height:1.1}
+  .mode p{margin:2px 0 0;color:var(--muted);font-size:15px;line-height:1.25}
+  .mode .best{margin-left:auto;font-size:14px;color:var(--muted);white-space:nowrap}
+
+  /* Juego */
+  .gtop{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .back{border:0;background:var(--card);width:42px;height:42px;border-radius:14px;font-size:20px;cursor:pointer;
+    box-shadow:0 2px 0 rgba(31,35,64,.06);color:var(--ink)}
+  #gTitle{margin:0;font-size:28px;font-weight:800}
+  .stats{display:flex;justify-content:space-between;color:var(--muted);font-size:16px;margin:4px 2px 8px}
+  .stats b{color:var(--ink)}
+  .timer{height:10px;border-radius:99px;background:#eadfcd;overflow:hidden;margin-bottom:16px}
+  .timer i{display:block;height:100%;width:100%;background:var(--accent);border-radius:99px}
+  .ask{text-align:center;font-size:20px;margin:4px 0 14px;font-weight:700}
+  .choices{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .choice{aspect-ratio:1/1.15;border:0;border-radius:var(--radius);background:var(--card);cursor:pointer;
+    box-shadow:0 3px 0 rgba(31,35,64,.08),0 10px 28px rgba(31,35,64,.08);
+    display:grid;place-items:center;font:inherit;color:var(--ink);position:relative;
+    transition:transform .12s, background .2s, box-shadow .2s}
+  .choice:active{transform:scale(.97)}
+  .choice .num{font-size:clamp(44px,15vw,72px);font-weight:800;letter-spacing:1px}
+  .choice svg{width:86%;height:86%}
+  .choice.ok{background:#dff6ea;box-shadow:0 0 0 4px var(--ok)}
+  .choice.bad{background:#fde3e4;box-shadow:0 0 0 4px var(--bad);animation:shake .35s}
+  @keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+  .tip{margin-top:18px;text-align:center;color:var(--muted);font-size:15px}
+
+  /* Récords y ayuda */
+  .box{background:var(--card);border-radius:var(--radius);padding:16px 18px;margin-bottom:12px;
+    box-shadow:0 2px 0 rgba(31,35,64,.06)}
+  .box h3{margin:0 0 4px;font-size:20px}
+  .box p{margin:0;color:var(--muted);font-size:16px;line-height:1.35}
+  .steps{margin:4px 0 10px;padding-left:22px;color:var(--muted);font-size:16px;line-height:1.4}
+  .box p + p{margin-top:4px}
+  .row{display:flex;justify-content:space-between;align-items:center;font-size:18px;padding:6px 0}
+  .row + .row{border-top:1px solid #f0e8da}
+
+  /* Menú de abajo con lupa (magnification) */
+  nav#dock{position:fixed;left:50%;bottom:calc(14px + env(safe-area-inset-bottom));transform:translateX(-50%);
+    display:flex;gap:6px;align-items:flex-end;padding:8px 14px;border-radius:26px;
+    background:rgba(255,255,255,.85);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+    box-shadow:0 10px 30px rgba(31,35,64,.15);touch-action:none;
+    transition:transform .35s ease, opacity .35s, filter .35s}
+  nav#dock.hide{transform:translate(-50%,140%);opacity:0;pointer-events:none}
+  .dk{border:0;background:none;width:64px;padding:4px 0 2px;cursor:pointer;color:var(--muted);font:inherit;
+    display:flex;flex-direction:column;align-items:center;transform-origin:50% 100%;
+    transition:transform .18s ease-out}
+  .dk .e{font-size:26px;line-height:1.1}
+  .dk span{font-size:12px;font-weight:700}
+  .dk.on{color:var(--ink)}
+  .dk.on::after{content:"";width:5px;height:5px;border-radius:50%;background:var(--accent);margin-top:2px}
+
+  /* Blur: todo borroso menos la tarjeta de resultado */
+  body.focus header, body.focus main, body.focus nav#dock{filter:blur(8px) saturate(.8)}
+  #overlay,#install{position:fixed;inset:0;display:grid;place-items:center;padding:24px;
+    background:rgba(31,35,64,.18);opacity:0;pointer-events:none;transition:opacity .3s}
+  #overlay.show,#install.show{opacity:1;pointer-events:auto}
+  .result{background:var(--card);border-radius:28px;padding:26px 22px;width:min(340px,100%);text-align:center;
+    box-shadow:0 20px 60px rgba(31,35,64,.25);transform:scale(.9);transition:transform .35s cubic-bezier(.2,1.4,.4,1)}
+  #overlay.show .result,#install.show .result{transform:scale(1)}
+  .stars{font-size:40px;letter-spacing:6px;margin:4px 0}
+  .result h2{margin:0;font-size:28px}
+  .result p{margin:4px 0 16px;color:var(--muted);font-size:17px}
+  .btn{display:block;width:100%;border:0;border-radius:16px;padding:13px;font:inherit;font-size:19px;font-weight:700;cursor:pointer;margin-top:10px}
+  .btn.main{background:var(--accent);color:#fff}
+  .btn.sec{background:#f3ece0;color:var(--ink)}
+  #install .result{text-align:left}
+  #install h2{text-align:center;font-size:24px}
+  #install .sub{text-align:center;margin:2px 0 10px}
+  .seg{display:flex;background:#f3ece0;border-radius:14px;padding:4px;margin-bottom:8px}
+  .seg button{flex:1;border:0;background:none;border-radius:10px;padding:7px;font:inherit;font-size:16px;font-weight:700;color:var(--muted);cursor:pointer;transition:background .25s,color .25s}
+  .seg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 4px rgba(31,35,64,.1)}
+  .osv{display:grid}
+  .osv ol{grid-area:1/1;opacity:0;visibility:hidden;transition:opacity .3s,visibility 0s linear .3s}
+  .osv ol.on{opacity:1;visibility:visible;transition:opacity .3s,visibility 0s}
+  .nomore{display:flex;gap:8px;align-items:center;justify-content:center;color:var(--muted);font-size:15px;margin-top:10px}
+  .flyer{position:fixed;margin:0;z-index:50;pointer-events:none;transform-origin:0 0;white-space:nowrap}
+</style>
+</head>
+<body>
+<header id="hdr">
+  <h1 id="hdrTitle">¿Cuál es mayor?</h1>
+  <p id="hdrSub">Toca el lado más grande antes de que se acabe el tiempo.</p>
+</header>
+
+<main>
+  <section class="view active" id="v-jugar"></section>
+
+  <section class="view" id="v-record">
+    <div class="box" id="recBox"></div>
+    <div class="box"><p>Los récords se guardan solo en este celular.</p></div>
+  </section>
+
+  <section class="view" id="v-ayuda">
+    <div class="box"><h3>¿Cómo se juega?</h3>
+      <p>Cada partida tiene 10 rondas. En cada una aparecen dos opciones: toca la que sea mayor. Tienes unos segundos por ronda y, mientras más aciertas, más difícil se pone.</p></div>
+    <div class="box"><h3>Los modos</h3>
+      <p><b>Puntos:</b> compara cantidades sin contar.<br><b>Números:</b> compara cifras que se van pareciendo.<br><b>Parecidos:</b> números que se confunden fácil, como 17 y 71.</p></div>
+    <div class="box"><h3>¿Por qué?</h3>
+      <p>La discalculia hace difícil comparar y reconocer números. Practicar el “sentido numérico” con juegos cortos ayuda, sin presión.</p></div>
+    <div class="box"><h3>📲 Ponlo como app en tu celular</h3>
+      <p><b>Android (Chrome):</b></p>
+      <ol class="steps">
+        <li>Abre el link del juego en Chrome.</li>
+        <li>Toca los <b>3 puntitos ⋮</b> de arriba a la derecha.</li>
+        <li>Elige <b>“Agregar a la pantalla principal”</b> (o “Instalar app”).</li>
+        <li>Ponle de nombre <b>¿Cuál es mayor?</b> y toca <b>Agregar</b>.</li>
+      </ol>
+      <p><b>iPhone (Safari):</b></p>
+      <ol class="steps">
+        <li>Abre el link del juego en Safari.</li>
+        <li>Toca el botón <b>Compartir</b> (el cuadrito con flecha ⬆️).</li>
+        <li>Baja y toca <b>“Agregar a inicio”</b>.</li>
+        <li>Toca <b>Agregar</b> arriba a la derecha.</li>
+      </ol>
+      <p>Listo: te aparece un ícono en tu pantalla de inicio que abre el juego directo.</p></div>
+  </section>
+
+  <section class="view" id="v-game">
+    <div class="gtop">
+      <button class="back" id="backBtn" aria-label="Volver">←</button>
+      <h2 id="gTitle">Puntos</h2>
+    </div>
+    <div class="stats"><span>Ronda <b id="sRound">1</b>/10</span><span>Aciertos <b id="sScore">0</b></span></div>
+    <div class="timer"><i id="bar"></i></div>
+    <div class="ask" id="ask">¿Cuál tiene más?</div>
+    <div class="choices">
+      <button class="choice" id="c0"></button>
+      <button class="choice" id="c1"></button>
+    </div>
+    <div class="tip" id="tip"></div>
+  </section>
+</main>
+
+<nav id="dock">
+  <button class="dk on" data-view="v-jugar"><span class="e">🎮</span><span>Jugar</span></button>
+  <button class="dk" data-view="v-record"><span class="e">🏆</span><span>Récords</span></button>
+  <button class="dk" data-view="v-ayuda"><span class="e">❓</span><span>Ayuda</span></button>
+</nav>
+
+<div id="overlay">
+  <div class="result">
+    <div class="stars" id="rStars">★★★</div>
+    <h2 id="rTitle">¡Muy bien!</h2>
+    <p id="rText">9 de 10</p>
+    <button class="btn main" id="again">Otra vez</button>
+    <button class="btn sec" id="toMenu">Menú</button>
+  </div>
+</div>
+
+<div id="install">
+  <div class="result">
+    <div class="stars">📲</div>
+    <h2>Descárgalo como app</h2>
+    <p class="sub">Ponlo en tu pantalla de inicio y ábrelo con un toque.</p>
+    <div class="seg"><button data-os="and">Android</button><button data-os="ios">iPhone</button></div>
+    <div class="osv">
+      <ol class="steps" data-os="and">
+        <li>Ábrelo en <b>Chrome</b>.</li>
+        <li>Toca los <b>3 puntitos ⋮</b> de arriba.</li>
+        <li>Elige <b>“Agregar a la pantalla principal”</b>.</li>
+        <li>Toca <b>Agregar</b>.</li>
+      </ol>
+      <ol class="steps" data-os="ios">
+        <li>Ábrelo en <b>Safari</b>.</li>
+        <li>Toca <b>Compartir</b> (cuadrito con flecha ⬆️).</li>
+        <li>Toca <b>“Agregar a inicio”</b>.</li>
+        <li>Toca <b>Agregar</b>.</li>
+      </ol>
+    </div>
+    <button class="btn main" id="instOk">¡A jugar!</button>
+    <label class="nomore"><input type="checkbox" id="instNo"> No volver a mostrar</label>
+  </div>
+</div>
+
+<script>
+const MODES = {
+  puntos:    {name:'Puntos',    desc:'¿Qué lado tiene más puntos?', icon:'⚫', bg:'#ffe3da', ask:'¿Cuál tiene más puntos?', time:4500},
+  numeros:   {name:'Números',   desc:'Compara cifras cada vez más cercanas', icon:'🔢', bg:'#dfe8ff', ask:'¿Cuál número es mayor?', time:4000},
+  parecidos: {name:'Parecidos', desc:'17 o 71, 6 o 9… ¡fíjate bien!', icon:'👀', bg:'#e0f5e8', ask:'¿Cuál número es mayor?', time:4000}
+};
+const ROUNDS = 10;
+const $ = id => document.getElementById(id);
+
+/* ---------- récords ---------- */
+function getBest(m){ try{ return +localStorage.getItem('best_'+m) || 0 }catch(e){ return 0 } }
+function setBest(m,v){ try{ localStorage.setItem('best_'+m, v) }catch(e){} }
+
+/* ---------- lista de modos ---------- */
+function renderModes(){
+  const v = $('v-jugar'); v.innerHTML = '';
+  for(const [key,m] of Object.entries(MODES)){
+    const b = document.createElement('button');
+    b.className = 'mode';
+    const best = getBest(key);
+    b.innerHTML = `<div class="ic" style="background:${m.bg}">${m.icon}</div>
+      <div><h2 class="mt">${m.name}</h2><p>${m.desc}</p></div>
+      <div class="best">${best ? '🏆 '+best+'/10' : ''}</div>`;
+    b.onclick = () => openGame(key, b.querySelector('.mt'));
+    v.appendChild(b);
+  }
+}
+function renderRecords(){
+  $('recBox').innerHTML = '<h3>Tus mejores partidas</h3>' + Object.entries(MODES).map(([k,m]) =>
+    `<div class="row"><span>${m.icon} ${m.name}</span><b>${getBest(k)}/10</b></div>`).join('');
+}
+
+/* ---------- crossfade entre vistas ---------- */
+let current = 'v-jugar';
+function showView(id){
+  if(id === current) return;
+  $(current).classList.remove('active');
+  $(id).classList.add('active');
+  current = id;
+  document.querySelectorAll('.dk').forEach(d => d.classList.toggle('on', d.dataset.view === id));
+  const inGame = id === 'v-game';
+  $('dock').classList.toggle('hide', inGame);
+  $('hdr').style.display = inGame ? 'none' : '';
+  if(id === 'v-record') renderRecords();
+  if(id === 'v-jugar') renderModes();
+}
+document.querySelectorAll('.dk').forEach(d => d.addEventListener('click', () => showView(d.dataset.view)));
+
+/* ---------- magnification (lupa) en el menú de abajo ---------- */
+const dock = $('dock'), dks = [...dock.querySelectorAll('.dk')];
+function magnify(x){
+  dks.forEach(el => {
+    const r = el.getBoundingClientRect();
+    const d = Math.abs(x - (r.left + r.width/2));
+    const s = 1 + 0.55 * Math.max(0, 1 - d/95);
+    el.style.transform = `scale(${s}) translateY(${-(s-1)*14}px)`;
+  });
+}
+function unmagnify(){ dks.forEach(el => el.style.transform = '') }
+dock.addEventListener('pointermove', e => magnify(e.clientX));
+dock.addEventListener('pointerdown', e => magnify(e.clientX));
+dock.addEventListener('pointerleave', unmagnify);
+dock.addEventListener('pointerup', e => { if(e.pointerType !== 'mouse') setTimeout(unmagnify, 180) });
+dock.addEventListener('pointercancel', unmagnify);
+
+/* ---------- shared element: el título de la tarjeta viaja hasta arriba ---------- */
+function flyTitle(fromEl, toEl, a){
+  const fly = fromEl.cloneNode(true);
+  fly.className = 'flyer';
+  const cs = getComputedStyle(fromEl);
+  Object.assign(fly.style, {left:a.left+'px', top:a.top+'px', fontSize:cs.fontSize, fontWeight:cs.fontWeight, lineHeight:cs.lineHeight});
+  document.body.appendChild(fly);
+  toEl.style.opacity = 0;
+  requestAnimationFrame(() => {
+    const b = toEl.getBoundingClientRect();
+    const scale = parseFloat(getComputedStyle(toEl).fontSize) / parseFloat(cs.fontSize);
+    const anim = fly.animate([
+      {transform:'translate(0,0) scale(1)'},
+      {transform:`translate(${b.left-a.left}px, ${b.top-a.top}px) scale(${scale})`}
+    ], {duration:420, easing:'cubic-bezier(.3,.9,.3,1)'});
+    anim.onfinish = () => { toEl.style.opacity = 1; fly.remove(); };
+  });
+}
+
+/* ---------- lógica del juego ---------- */
+let mode, round, score, answer, locked, timerStart, raf, timeout, pair;
+const rand = (a,b) => a + Math.floor(Math.random()*(b-a+1));
+
+function genPair(r){
+  if(mode === 'puntos'){
+    const diff = Math.max(1, 5 - Math.floor(r/2));
+    let a = rand(3, 16), b = Math.random() < .5 ? a + diff : a - diff;
+    if(b < 1 || b > 20) b = a + diff;
+    return [a, b];
+  }
+  if(mode === 'numeros'){
+    const max = 20 + r*12;
+    const diff = Math.max(1, rand(1, Math.max(1, 15 - r*1.5|0)));
+    const a = rand(diff, max);
+    return [a, Math.random() < .5 ? a + diff : a - diff];
+  }
+  // parecidos
+  const t = Math.random();
+  if(t < .5){ let d1 = rand(1,9), d2; do{ d2 = rand(1,9) }while(d2 === d1); return [d1*10+d2, d2*10+d1]; }
+  if(t < .75){ const sets = [[6,9],[16,19],[66,99],[69,96],[68,89],[61,91],[106,109],[96,69]]; return sets[rand(0,sets.length-1)].slice(); }
+  const ds = [rand(1,9), rand(0,9), rand(0,9)];
+  let a = ds[0]*100+ds[1]*10+ds[2], b = ds[0]*100+ds[2]*10+ds[1];
+  if(a === b){ b = a + 1 }
+  return [a, b];
+}
+
+function dotsSVG(n){
+  const cells = [...Array(25).keys()].sort(() => Math.random() - .5).slice(0, n);
+  const color = ['#ff6b4a','#4a7dff','#21b26b','#1f2340'][rand(0,3)];
+  const circles = cells.map(c => {
+    const x = (c % 5) * 20 + 10 + rand(-4,4), y = Math.floor(c / 5) * 20 + 10 + rand(-4,4);
+    return `<circle cx="${x}" cy="${y}" r="${rand(5,7)}" fill="${color}"/>`;
+  }).join('');
+  return `<svg viewBox="0 0 100 100" aria-label="${n} puntos">${circles}</svg>`;
+}
+
+function newRound(){
+  locked = false;
+  pair = genPair(round);
+  answer = pair[0] > pair[1] ? 0 : 1;
+  $('sRound').textContent = round + 1;
+  $('sScore').textContent = score;
+  [0,1].forEach(i => {
+    const c = $('c'+i);
+    c.className = 'choice';
+    c.innerHTML = mode === 'puntos' ? dotsSVG(pair[i]) : `<span class="num">${pair[i]}</span>`;
+  });
+  $('tip').textContent = '';
+  const T = Math.max(2200, MODES[mode].time - round*150);
+  timerStart = performance.now();
+  cancelAnimationFrame(raf);
+  const tick = now => {
+    const p = Math.max(0, 1 - (now - timerStart)/T);
+    $('bar').style.width = (p*100) + '%';
+    if(p > 0 && !locked) raf = requestAnimationFrame(tick);
+  };
+  raf = requestAnimationFrame(tick);
+  clearTimeout(timeout);
+  timeout = setTimeout(() => choose(-1), T);
+}
+
+function choose(i){
+  if(locked) return;
+  locked = true;
+  clearTimeout(timeout); cancelAnimationFrame(raf);
+  if(i === answer){
+    score++;
+    $('c'+i).classList.add('ok');
+    $('tip').textContent = ['¡Bien!','¡Eso!','¡Correcto!','¡Muy bien!'][rand(0,3)];
+  }else{
+    if(i >= 0) $('c'+i).classList.add('bad');
+    $('c'+answer).classList.add('ok');
+    $('tip').textContent = (i < 0 ? '¡Se acabó el tiempo! ' : '') + `${Math.max(...pair)} es mayor que ${Math.min(...pair)}`;
+  }
+  $('sScore').textContent = score;
+  setTimeout(() => { round++; round < ROUNDS ? newRound() : finish(); }, i === answer ? 600 : 1300);
+}
+$('c0').onclick = () => choose(0);
+$('c1').onclick = () => choose(1);
+
+function openGame(key, titleEl){
+  mode = key; round = 0; score = 0;
+  $('gTitle').textContent = MODES[key].name;
+  $('ask').textContent = MODES[key].ask;
+  const from = titleEl ? titleEl.getBoundingClientRect() : null;
+  showView('v-game');
+  if(titleEl) flyTitle(titleEl, $('gTitle'), from);
+  newRound();
+}
+function stopGame(){ clearTimeout(timeout); cancelAnimationFrame(raf); locked = true; }
+$('backBtn').onclick = () => { stopGame(); showView('v-jugar'); };
+
+/* ---------- resultado con blur ---------- */
+function finish(){
+  const best = getBest(mode), rec = score > best;
+  if(rec) setBest(mode, score);
+  const stars = score >= 9 ? 3 : score >= 7 ? 2 : score >= 5 ? 1 : 0;
+  $('rStars').textContent = '★'.repeat(stars) + '☆'.repeat(3 - stars);
+  $('rTitle').textContent = stars === 3 ? '¡Excelente!' : stars === 2 ? '¡Muy bien!' : stars === 1 ? '¡Bien!' : '¡Sigue practicando!';
+  $('rText').textContent = `${score} de ${ROUNDS} aciertos` + (rec ? ' · ¡Nuevo récord!' : '');
+  document.body.classList.add('focus');
+  $('overlay').classList.add('show');
+}
+function closeResult(){ document.body.classList.remove('focus'); $('overlay').classList.remove('show'); }
+$('again').onclick = () => { closeResult(); openGame(mode); };
+$('toMenu').onclick = () => { closeResult(); showView('v-jugar'); };
+
+/* ---------- mensaje de cómo descargarlo ---------- */
+function setOS(os){
+  document.querySelectorAll('#install [data-os]').forEach(el => el.classList.toggle('on', el.dataset.os === os));
+}
+document.querySelectorAll('.seg button').forEach(b => b.onclick = () => setOS(b.dataset.os));
+setOS(/iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'ios' : 'and');
+$('instOk').onclick = () => {
+  if($('instNo').checked){ try{ localStorage.setItem('hideInstall','1') }catch(e){} }
+  document.body.classList.remove('focus'); $('install').classList.remove('show');
+};
+const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+let hidden = false; try{ hidden = localStorage.getItem('hideInstall') === '1' }catch(e){}
+if(!standalone && !hidden){
+  setTimeout(() => { document.body.classList.add('focus'); $('install').classList.add('show'); }, 350);
+}
+
+renderModes();
+</script>
+</body>
+</html>
